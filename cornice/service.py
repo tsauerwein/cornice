@@ -240,8 +240,19 @@ class Service(object):
                     config.add_view(view=view, route_name=self.route_name,
                                         **view_kw)
 
+            wrapped_func = func
             for decorator in decorators:
-                func = decorator(func)
+                # Stacked api decorators may result in this being called more
+                # than once for the same function, we need to make sure that
+                # the original function isn't wrapped more than once by the
+                # same functions.
+                if (func is decorator) or (isinstance(func, decorator)):
+                    # `func` is already one of the provided decorators, assume
+                    # we've already wrapped this one and skip it this time
+                    break
+                wrapped_func = decorator(wrapped_func)
+            else:
+                func = wrapped_func
 
             info = venusian.attach(func, callback, category='pyramid')
 
