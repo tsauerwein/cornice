@@ -14,6 +14,7 @@ from cornice.tests import CatchErrors
 service1 = Service(name="service1", path="/service1")
 service2 = Service(name="service2", path="/service2")
 service3 = Service(name="service3", path="/service3")
+service4 = Service(name="service4", path="/service4")
 
 
 @service1.get()
@@ -48,6 +49,12 @@ def wrap_fn(fn):
 
 @service3.get(decorators=[wrap_fn])
 def wrapped_get3(request):
+    return {"test": "succeeded"}
+
+
+@service4.get(decorators=[wrap_fn])
+@service4.post(decorators=[wrap_fn])
+def doublewrapped_get4_post4(request):
     return {"test": "succeeded"}
 
 
@@ -102,4 +109,11 @@ class TestServiceDefinition(unittest.TestCase):
         # passing a decorator in to the service api call should result in a
         # decorated view callable
         resp = self.app.get("/service3")
+        self.assertEquals(resp.json, {'test': 'succeeded', 'wrapped0': 'yes'})
+
+    def test_decorated_view_fn_not_doubled(self):
+        # passing a decorator in to multiple service api calls for the same
+        # callable should only apply the decorators once
+        resp = self.app.get("/service4")
+        # NOTE: no "wrappedN" keys (where N > 0) == success
         self.assertEquals(resp.json, {'test': 'succeeded', 'wrapped0': 'yes'})

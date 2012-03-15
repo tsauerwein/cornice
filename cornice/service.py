@@ -247,15 +247,22 @@ class Service(object):
                 # the original function isn't wrapped more than once by the
                 # same functions.
                 try:
+                    # is func an instance of a decorator class?
                     func_is_instance = isinstance(func, decorator)
                 except TypeError:
+                    # decorator isn't a class at all
                     func_is_instance = False
-                if func is decorator or func_is_instance:
-                    # `func` is already one of the provided decorators, assume
-                    # we've already wrapped this one and skip it this time
+
+                if func_is_instance:
                     break
-                wrapped_func = decorator(wrapped_func)
+                else:
+                    wrapped_func = decorator(wrapped_func)
+                    if func.func_code is wrapped_func.func_code:
+                        # `func` is already one of the provided decorators,
+                        break
             else:
+                # the for loop completed, i.e. none of the decorators were
+                # already in play
                 func = wrapped_func
 
             info = venusian.attach(func, callback, category='pyramid')
