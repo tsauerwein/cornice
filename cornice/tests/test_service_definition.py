@@ -1,7 +1,7 @@
 # This Source Code Form is subject to the terms of the Mozilla Public
 # License, v. 2.0. If a copy of the MPL was not distributed with this file,
 # You can obtain one at http://mozilla.org/MPL/2.0/.
-
+import functools
 import unittest
 
 from pyramid import testing
@@ -13,6 +13,7 @@ from cornice.tests import CatchErrors
 
 service1 = Service(name="service1", path="/service1")
 service2 = Service(name="service2", path="/service2")
+service3 = Service(name="service3", path="/service3")
 
 
 @service1.get()
@@ -28,6 +29,25 @@ def post1(request):
 @service2.get(accept="text/html")
 @service2.post(accept="audio/ogg")
 def get2_or_post2(request):
+    return {"test": "succeeded"}
+
+
+def wrap_fn(fn):
+    if not hasattr(fn, '_wrap_count'):
+        fn._wrap_count = 0
+    else:
+        fn._wrap_count += 1
+
+    @functools.wraps(fn)
+    def wrapper(*args, **kwargs):
+        result = fn(*args, **kwargs)
+        result["wrapped%d" % fn._wrap_count] = "yes"
+        return result
+    return wrapper
+
+
+@service3.get(decorators=[wrap_fn])
+def wrapped_get3(request):
     return {"test": "succeeded"}
 
 
@@ -77,3 +97,9 @@ class TestServiceDefinition(unittest.TestCase):
 
         resp = self.app.post("/service2", headers={'Accept': 'audio/ogg'})
         self.assertEquals(resp.json, {'test': 'succeeded'})
+
+    def test_decorated_view_fn(self):
+        # passing a decorator in to the service api call should result in a
+        # decorated view callable
+        resp = self.app.get("/service3")
+        self.assertEquals(resp.json, {'test': 'succeeded', 'wrapped0': 'yes'})
