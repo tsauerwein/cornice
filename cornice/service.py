@@ -212,11 +212,13 @@ class Service(object):
                         return meth()
 
                     del view_kw['attr']
-                    view = functools.partial(call_service, view,
-                                       self.definitions[method])
                 else:
-                    view = functools.partial(call_service, ob,
-                                       self.definitions[method])
+                    view = ob
+
+                for decorator in decorators:
+                    view = decorator(view)
+                view = functools.partial(call_service, view,
+                                         self.definitions[method])
 
                 # set the module of the partial function
                 setattr(view, '__module__', getattr(ob, '__module__'))
@@ -239,31 +241,6 @@ class Service(object):
                 else:
                     config.add_view(view=view, route_name=self.route_name,
                                         **view_kw)
-
-            wrapped_func = func
-            for decorator in decorators:
-                # Stacked api decorators may result in this being called more
-                # than once for the same function, we need to make sure that
-                # the original function isn't wrapped more than once by the
-                # same functions.
-                try:
-                    # is func an instance of a decorator class?
-                    func_is_instance = isinstance(func, decorator)
-                except TypeError:
-                    # decorator isn't a class at all
-                    func_is_instance = False
-
-                if func_is_instance:
-                    break
-                else:
-                    wrapped_func = decorator(wrapped_func)
-                    if func.func_code is wrapped_func.func_code:
-                        # `func` is already one of the provided decorators,
-                        break
-            else:
-                # the for loop completed, i.e. none of the decorators were
-                # already in play
-                func = wrapped_func
 
             info = venusian.attach(func, callback, category='pyramid')
 

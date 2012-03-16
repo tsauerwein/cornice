@@ -15,6 +15,7 @@ service1 = Service(name="service1", path="/service1")
 service2 = Service(name="service2", path="/service2")
 service3 = Service(name="service3", path="/service3")
 service4 = Service(name="service4", path="/service4")
+service5 = Service(name="service5", path="/service5")
 
 
 @service1.get()
@@ -42,7 +43,7 @@ def wrap_fn(fn):
     @functools.wraps(fn)
     def wrapper(*args, **kwargs):
         result = fn(*args, **kwargs)
-        result["wrapped%d" % fn._wrap_count] = "yes"
+        result["wrapped"] = "yes"
         return result
     return wrapper
 
@@ -58,8 +59,14 @@ def doublewrapped_get4_post4(request):
     return {"test": "succeeded"}
 
 
-class TestServiceDefinition(unittest.TestCase):
+@service5.get(accept="application/json", renderer="simplejson")
+@service5.get(decorators=[wrap_fn])
+#@service5.get(accept="application/newlines", renderer="newlines")
+def manywrapped_get5_post5(request):
+    return {"test": "succeeded"}
 
+
+class TestServiceDefinition(unittest.TestCase):
     def setUp(self):
         self.config = testing.setUp()
         self.config.include("cornice")
@@ -109,11 +116,18 @@ class TestServiceDefinition(unittest.TestCase):
         # passing a decorator in to the service api call should result in a
         # decorated view callable
         resp = self.app.get("/service3")
-        self.assertEquals(resp.json, {'test': 'succeeded', 'wrapped0': 'yes'})
+        self.assertEquals(resp.json, {'test': 'succeeded', 'wrapped': 'yes'})
 
-    def test_decorated_view_fn_not_doubled(self):
+    def test_stacked_decorated_view_fn(self):
         # passing a decorator in to multiple service api calls for the same
         # callable should only apply the decorators once
+        # NOTE: no "wrappedN" keys (where N > 0) in the resp == success
         resp = self.app.get("/service4")
-        # NOTE: no "wrappedN" keys (where N > 0) == success
-        self.assertEquals(resp.json, {'test': 'succeeded', 'wrapped0': 'yes'})
+        self.assertEquals(resp.json, {'test': 'succeeded', 'wrapped': 'yes'})
+
+        resp = self.app.get("/service5")
+        self.assertEquals(resp.json, {'test': 'succeeded', 'wrapped': 'yes'})
+
+        resp = self.app.get("/service5", headers={'Accept':
+                                                  'application/json'})
+        self.assertEquals(resp.json, {'test': 'succeeded'})
