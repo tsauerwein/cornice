@@ -14,8 +14,23 @@ from cornice.service import get_services
 import docutils
 from docutils import nodes, core
 from docutils.parsers.rst import Directive, directives
+from docutils.statemachine import ViewList
 from docutils.writers.html4css1 import Writer, HTMLTranslator
+
 from sphinx.util.docfields import DocFieldTransformer
+from sphinx.util.nodes import nested_parse_with_titles
+
+
+def http_directive(method, path, content):
+    method = method.lower().strip()
+    if isinstance(content, basestring):
+        content = content.splitlines()
+    yield ''
+    yield '.. http:{method}:: {path}'.format(**locals())
+    yield ''
+    for line in content:
+        yield '   ' + line
+    yield ''
 
 
 def convert_to_list(argument):
@@ -59,6 +74,15 @@ class ServiceDirective(Directive):
         self.env = self.state.document.settings.env
 
     def run(self):
+        node = nodes.section()
+        node.document = self.state.document
+        result = ViewList()
+        for line in self.make_rst():
+            result.append(line, '<cornice>')
+        nested_parse_with_titles(self.state, result, node)
+        return node.children
+
+    def make_rst(self):
         # import the modules, which will populate the SERVICES variable.
         for module in self.options.get('modules'):
             import_module(module)
@@ -76,6 +100,11 @@ class ServiceDirective(Directive):
         return [self._render_service(s) for s in services]
 
     def _render_service(self, service):
+        for method, view, args in service.definitions:
+            for line in http_directive(method, service.path, "yay"):
+                yield line
+
+    def _old_render_service(self, service):
         service_id = "service-%d" % self.env.new_serialno('service')
         service_node = nodes.section(ids=[service_id])
         service_node += nodes.title(text='Service at %s' % service.path)
