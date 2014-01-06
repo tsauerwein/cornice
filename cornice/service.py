@@ -528,6 +528,8 @@ def decorate_view(view, args, method):
         request.cornice_args = (args, ob)
         return response
 
+    if is_string(view):
+        return wrapper
+
     # return the wrapper, not the function, keep the same signature
-    functools.wraps(wrapper)
-    return wrapper
+    return functools.wraps(view)(wrapper)

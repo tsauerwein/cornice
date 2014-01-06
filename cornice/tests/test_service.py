@@ -1,7 +1,7 @@
 # This Source Code Form is subject to the terms of the Mozilla Public
 # License, v. 2.0. If a copy of the MPL was not distributed with this file,
 # You can obtain one at http://mozilla.org/MPL/2.0/.
-from cornice.service import Service, get_services, clear_services
+from cornice.service import Service, get_services, clear_services, decorate_view
 from cornice.tests import validationapp
 from cornice.tests.support import TestCase
 
@@ -454,3 +454,10 @@ class TestService(TestCase):
             return "data"
         self.assertTrue(any(view is dummy_view
                             for method, view, args in service.definitions))
+
+    def test_decorate_view(self):
+        def myfunction():
+            pass
+
+        decorated = decorate_view(myfunction, {}, 'POST')
+        self.assertEqual(decorated.__name__, myfunction.__name__)
