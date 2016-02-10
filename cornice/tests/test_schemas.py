@@ -17,6 +17,7 @@ try:
         Sequence,
         SequenceSchema,
         SchemaNode,
+        TupleSchema,
         String,
         Int,
         OneOf,
@@ -58,6 +59,29 @@ if COLANDER:
     class TestNoneSchema(MappingSchema):
         foo = SchemaNode(String())
         bar = SchemaNode(Sequence(), SchemaNode(String()), missing=None)
+
+    class TestNestedNoneSchema(MappingSchema):
+        a = SchemaNode(String())
+        b = TestNoneSchema()
+
+    class SchemaA(MappingSchema):
+        val = SchemaNode(String())
+
+    class SchemaB(MappingSchema):
+        a = SchemaA(missing=drop)
+
+    class SchemaC(MappingSchema):
+        b = SchemaB()
+
+    class TestTuple(TupleSchema):
+        val1 = SchemaNode(String())
+        val2 = SchemaNode(Int())
+
+    class TestTupleSchema(MappingSchema):
+        t = TestTuple(missing=drop)
+
+    class NestedTupleSchema(MappingSchema):
+        n = TestTupleSchema()
 
     class ToBoundSchema(TestingSchema):
         foo = SchemaNode(Int(), missing=1)
@@ -238,13 +262,47 @@ if COLANDER:
             validate_colander_schema(schema, dummy_request)
 
         def test_sequence_with_null(self):
-            # null can be passed to a sequence field
+            # null can be passed to a nested sequence field
             schema = CorniceSchema.from_colander(TestNoneSchema)
 
             dummy_request = get_mock_request('{"foo": "abc", "bar": null}')
             validate_colander_schema(schema, dummy_request)
             self.assertEqual(len(dummy_request.errors), 0)
             self.assertIsNone(dummy_request.validated['bar'])
+
+        def test_nested_sequence_schema_with_null(self):
+            # null can be passed to a sequence field
+            schema = CorniceSchema.from_colander(TestNestedNoneSchema)
+
+            dummy_request = get_mock_request(
+                '{"a": "a", "b": {"foo": "abc", "bar": null}}')
+            validate_colander_schema(schema, dummy_request)
+            self.assertEqual(len(dummy_request.errors), 0)
+            self.assertIsNone(dummy_request.validated['b']['bar'])
+
+        def test_nested_schema_with_null(self):
+            # null can be passed to a mapping field
+            schema = CorniceSchema.from_colander(SchemaC)
+
+            dummy_request = get_mock_request('{"b": {"a": {"val": "ok"}}}')
+            validate_colander_schema(schema, dummy_request)
+            self.assertEqual(len(dummy_request.errors), 0)
+
+            dummy_request = get_mock_request('{"b": {"a": null}}')
+            validate_colander_schema(schema, dummy_request)
+            self.assertEqual(len(dummy_request.errors), 0)
+
+        def test_nested_tuple_schema_with_null(self):
+            # null can be passed to a tuple field
+            schema = CorniceSchema.from_colander(NestedTupleSchema)
+
+            dummy_request = get_mock_request('{"n": {"t": ["s", 1]}}')
+            validate_colander_schema(schema, dummy_request)
+            self.assertEqual(len(dummy_request.errors), 0)
+
+            dummy_request = get_mock_request('{"n": {"t": null}}')
+            validate_colander_schema(schema, dummy_request)
+            self.assertEqual(len(dummy_request.errors), 0)
 
         def test_colander_schema_using_drop(self):
             """

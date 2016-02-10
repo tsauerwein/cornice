@@ -1,6 +1,7 @@
 # This Source Code Form is subject to the terms of the Mozilla Public
 # License, v. 2.0. If a copy of the MPL was not distributed with this file,
 # You can obtain one at http://mozilla.org/MPL/2.0/.
+import collections
 import webob.multidict
 
 from pyramid.path import DottedNameResolver
@@ -107,6 +108,30 @@ def validate_colander_schema(schema, request):
         raise SchemaError('colander schema type is not a Mapping: %s' %
                           type(schema_type))
 
+    def _none_to_null(data):
+        """Replace all `None` values with `colander.null` in the given
+        structure because `deserialize` expects `colander.null`.
+        """
+        if data is None:
+            return null
+        elif not data:
+            return data
+        elif isinstance(data, webob.multidict.MultiDict):
+            new_data = webob.multidict.MultiDict()
+            for key in data:
+                values = data.getall(key)
+                for value in values:
+                    new_data[key] = _none_to_null(value)
+            data = new_data
+        elif isinstance(data, collections.Mapping):
+            for key in data:
+                data[key] = _none_to_null(data[key])
+        elif isinstance(data, list):
+            data = [_none_to_null(value) for value in data]
+        elif isinstance(data, set):
+            data = (_none_to_null(value) for value in data)
+        return data
+
     def _validate_fields(location, data):
         if location == 'body':
             try:
@@ -123,6 +148,7 @@ def validate_colander_schema(schema, request):
             except KeyError:
                 pass
 
+        data = _none_to_null(data)
         for attr in schema.get_attributes(location=location,
                                           request=request):
             if attr.required and attr.name not in data and \
