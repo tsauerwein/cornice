@@ -110,3 +110,37 @@ else:
             errors = dummy_request.errors
             self.assertEqual(len(errors), 1)
             self.assertNotIn('body', dummy_request.validated)
+
+        def test_colander_nested_schema_null(self):
+            from colander import SchemaNode, String
+
+            class SchemaA(StrictMappingSchema):
+                val = SchemaNode(String())
+
+            class SchemaB(StrictMappingSchema):
+                a = SchemaA()
+
+            class SchemaC(StrictMappingSchema):
+                b = SchemaB()
+
+            schema = CorniceSchema()
+            schema['body'] = SchemaC()
+
+            # test with all values given
+            dummy_request = get_mock_request(
+                '''{"b": {"a": {"val": "ok"}}}'''
+            )
+            validate_colander_schema(schema, dummy_request)
+
+            errors = dummy_request.errors
+            self.assertEqual(len(errors), 0)
+
+            # test with null value (fails)
+            dummy_request = get_mock_request(
+                '''{"b": {"a": null}}'''
+            )
+            validate_colander_schema(schema, dummy_request)
+
+            errors = dummy_request.errors
+            print(errors)
+            self.assertEqual(len(errors), 0)
